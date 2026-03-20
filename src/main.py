@@ -21,6 +21,20 @@ MODULES CALLED:
 - src.PerformanceEvaluation
 """
 
+"""
+PROJECT DESCRIPTION:
+This is the main entry point for the Iris Recognition Group Project based on the Ma et al. (2003) paper. 
+It processes the CASIA Iris Image Database (version 1.0), extracting features from Session 1 
+for training and evaluating against Session 2 for testing.
+
+PIPELINE REMARKS:
+1. Load images from the dataset directory.
+2. Preprocessing: Localization -> Normalization -> Enhancement.
+3. Feature Extraction: Generate 1536-dimensional feature vectors.
+4. Matching: LDA dimension reduction and Nearest Center Classifier.
+5. Evaluation: Calculate CRR for identification and ROC for verification.
+"""
+
 import os
 import sys
 import yaml
@@ -32,9 +46,9 @@ import numpy as np
 # Python can find IrisLocalization.py, etc., inside the src/ folder.
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
-    sys.path.append(current_dir)
+    sys.path.insert(0, current_dir)
 
-# Import local modules
+# Import local modules with Robust Error Handling
 try:
     from IrisLocalization import localize_iris
     from IrisNormalization import normalize_iris
@@ -42,9 +56,11 @@ try:
     from FeatureExtraction import extract_features
     from IrisMatching import IrisMatcher
     from PerformanceEvaluation import evaluate_identification_crr, evaluate_verification_roc
+    print(">>> All iris modules loaded successfully.")
 except ImportError as e:
     print(f"DEBUG ERROR: Failed to import local modules. {e}")
     print(f"Current sys.path: {sys.path}")
+    sys.exit(1)
 
 def setup_env(config):
     """Creates the directory structure defined in the config."""
@@ -83,16 +99,19 @@ def process_pipeline(img_path, cfg):
 
 def main():
     # 1. Load Configuration from YAML
-    config_path = os.path.join("configs", "default.yaml")
+    # We look for the config file relative to the project root
+    root_dir = os.path.dirname(current_dir)
+    config_path = os.path.join(root_dir, "configs", "default.yaml")
+    
     if not os.path.exists(config_path):
-        # Fallback if running from within src/
-        config_path = os.path.join("..", "configs", "default.yaml")
-        
+        print(f"CRITICAL ERROR: Config not found at {config_path}")
+        return
+
     try:
         with open(config_path, "r") as f:
             cfg = yaml.safe_load(f)
     except Exception as e:
-        print(f"CRITICAL ERROR: Could not load config file at {config_path}. {e}")
+        print(f"CRITICAL ERROR: Could not read config file. {e}")
         return
 
     # 2. Initialize folders
@@ -101,12 +120,14 @@ def main():
     train_feats, train_labels = [], []
     test_feats, test_labels = [], []
 
-    dataset_path = cfg['data']['dataset_path']
+    # Ensure dataset path is absolute
+    dataset_path = os.path.join(root_dir, "CASIA-IrisV1")
     print(f"\n--- Starting Feature Extraction Pipeline ---")
-    print(f"Dataset Path: {os.path.abspath(dataset_path)}")
+    print(f"Dataset Path: {dataset_path}")
 
     if not os.path.exists(dataset_path):
         print(f"ERROR: Dataset directory not found at {dataset_path}")
+        print("Please ensure your 'CASIA-IrisV1' folder is inside the project root.")
         return
 
     # 3. Iterate through Subjects (001, 002, ...)
@@ -137,7 +158,7 @@ def main():
                         test_feats.append(feat)
                         test_labels.append(subject)
                 except Exception as e:
-                    print(f"Error processing {img_path}: {e}")
+                    print(f"Skipping {img_path}: {e}")
 
     # 4. Convert lists to numpy arrays
     X_train = np.array(train_feats)
@@ -146,7 +167,7 @@ def main():
     y_test = np.array(test_labels)
 
     if len(X_train) == 0 or len(X_test) == 0:
-        print("ERROR: No features extracted. Check dataset structure and paths.")
+        print("ERROR: No features extracted. Check dataset structure.")
         return
 
     # 5. Training Iris Matcher
@@ -163,10 +184,9 @@ def main():
         preds, dists = matcher.predict(X_test, metric=metric)
         crr = evaluate_identification_crr(y_test, preds)
         print(f"Identification CRR ({metric.upper()}): {crr:.2f}%")
-        last_preds, last_dists = preds, dists # Keep last one for ROC
+        last_preds, last_dists = preds, dists 
 
     # Verification (ROC Curve)
-    # Using the last distance scores (e.g., Cosine) to generate Fig 11.
     print(f"\n>>> Generating ROC Curve in {cfg['paths']['figures']}...")
     evaluate_verification_roc(y_test, last_preds, last_dists, cfg['paths']['figures'])
 
