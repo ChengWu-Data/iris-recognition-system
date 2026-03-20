@@ -1,32 +1,50 @@
-'''
-iris-recognition-system/
-├── README.md
-├── requirements.txt
-├── .gitignore
-├── src/
-│   ├── main.py
-│   ├── IrisLocalization.py
-│   ├── IrisNormalization.py
-│   ├── ImageEnhancement.py
-│   ├── FeatureExtraction.py
-│   ├── IrisMatching.py
-│   └── PerformanceEvaluation.py
-├── configs/
-│   └── default.yaml
-├── docs/
-│   ├── project_plan.md
-│   ├── team_roles.md
-│   ├── implementation_notes.md
-│   └── experiment_log.md
-├── results/
-│   ├── figures/
-│   ├── tables/
-│   └── .gitkeep
-└── tests/
-    ├── test_localization.py
-    ├── test_normalization.py
-    ├── test_enhancement.py
-    ├── test_features.py
-    ├── test_matching.py
-    └── test_evaluation.py
-‘’‘
+# Iris Recognition System
+
+This repository contains the implementation plan for the group project on iris recognition based on Ma et al. (2003).
+
+## Project Goal
+
+Implement an iris recognition algorithm following the design in Ma et al. (2003), with focus on:
+
+- Image Preprocessing
+- Feature Extraction
+- Iris Matching
+- Performance Evaluation
+
+## Required Modules
+
+- IrisLocalization
+- IrisNormalization
+- ImageEnhancement
+- FeatureExtraction
+- IrisMatching
+- PerformanceEvaluation
+
+## Dataset
+
+CASIA Iris Image Database (Version 1.0)
+
+According to the project instructions:
+- images from the first session are used for training
+- images from the second session are used for testing
+
+## Expected Outputs
+
+- Correct Recognition Rate (CRR) in identification mode
+- ROC curve in verification mode
+
+## Repository Structure
+
+- `src/`: source code
+- `configs/`: configuration files
+- `docs/`: planning and implementation notes
+- `results/`: generated tables and figures
+- `tests/`: module-level checks
+
+## Current Status
+
+Project setup in progress.
+
+## Notes
+
+This repository is being organized to support modular development, reproducibility, and final packaging for course submission.
