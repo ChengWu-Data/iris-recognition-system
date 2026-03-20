@@ -22,66 +22,106 @@ MODULES CALLED:
 """
 
 import os
+import sys
 import yaml
+import cv2
 import numpy as np
-from IrisLocalization import localize_iris
-from IrisNormalization import normalize_iris
-from ImageEnhancement import enhance_image
-from FeatureExtraction import extract_features
-from IrisMatching import IrisMatcher
-from PerformanceEvaluation import evaluate_identification_crr, evaluate_verification_roc
+
+# --- PATH FIX FOR LOCAL MODULES ---
+# This ensures that even if you run from the root folder, 
+# Python can find IrisLocalization.py, etc., inside the src/ folder.
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
+
+# Import local modules
+try:
+    from IrisLocalization import localize_iris
+    from IrisNormalization import normalize_iris
+    from ImageEnhancement import enhance_image
+    from FeatureExtraction import extract_features
+    from IrisMatching import IrisMatcher
+    from PerformanceEvaluation import evaluate_identification_crr, evaluate_verification_roc
+except ImportError as e:
+    print(f"DEBUG ERROR: Failed to import local modules. {e}")
+    print(f"Current sys.path: {sys.path}")
 
 def setup_env(config):
-    """
-    Creates the directory structure defined in the config.
-    Ensures 'results/figures' and 'results/tables' exist.
-    """
-    for key in ['results', 'figures', 'tables']:
-        path = config['paths'][key]
+    """Creates the directory structure defined in the config."""
+    paths_to_create = [
+        config['paths']['results'],
+        config['paths']['figures'],
+        config['paths']['tables']
+    ]
+    for path in paths_to_create:
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
-            # Create .gitkeep to ensure empty dirs are tracked by Git
+            # Create .gitkeep to ensure empty folders are tracked by Git
             with open(os.path.join(path, ".gitkeep"), "w") as f:
                 pass
+    print(f">>> Environment setup complete. Results will be saved to: {config['paths']['results']}")
 
 def process_pipeline(img_path, cfg):
-    """End-to-end processing for a single image using config parameters."""
-    # Note: These modules should be updated to accept the sub-config dictionaries
-    p_param, i_param = localize_iris(img_path, cfg['localization'])
-    norm_img = normalize_iris(img_path, p_param, i_param, cfg['normalization'])
+    """Executes the end-to-end preprocessing and extraction for a single image."""
+    img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+    if img is None:
+        raise FileNotFoundError(f"Failed to load image: {img_path}")
+
+    # 1. Localization
+    p_param, i_param = localize_iris(img, cfg['localization'])
+    
+    # 2. Normalization
+    norm_img = normalize_iris(img, p_param, i_param, cfg['normalization'])
+    
+    # 3. Enhancement
     enh_img = enhance_image(norm_img)
-    feat = extract_features(enh_img, cfg['features'])
-    return feat
+    
+    # 4. Feature Extraction
+    feature_vector = extract_features(enh_img, cfg['features'])
+    
+    return feature_vector
 
 def main():
-    # 1. Load Configuration
+    # 1. Load Configuration from YAML
     config_path = os.path.join("configs", "default.yaml")
-    with open(config_path, "r") as f:
-        cfg = yaml.safe_load(f)
-    
-    # 2. Setup folders (results/figures, etc.)
+    if not os.path.exists(config_path):
+        # Fallback if running from within src/
+        config_path = os.path.join("..", "configs", "default.yaml")
+        
+    try:
+        with open(config_path, "r") as f:
+            cfg = yaml.safe_load(f)
+    except Exception as e:
+        print(f"CRITICAL ERROR: Could not load config file at {config_path}. {e}")
+        return
+
+    # 2. Initialize folders
     setup_env(cfg)
     
     train_feats, train_labels = [], []
     test_feats, test_labels = [], []
 
     dataset_path = cfg['data']['dataset_path']
-    print(f"--- Starting Feature Extraction from {dataset_path} ---")
+    print(f"\n--- Starting Feature Extraction Pipeline ---")
+    print(f"Dataset Path: {os.path.abspath(dataset_path)}")
+
+    if not os.path.exists(dataset_path):
+        print(f"ERROR: Dataset directory not found at {dataset_path}")
+        return
 
     # 3. Iterate through Subjects (001, 002, ...)
-    # This restores your original logic for Session 1 and Session 2
     subjects = sorted([d for d in os.listdir(dataset_path) if os.path.isdir(os.path.join(dataset_path, d))])
     
     for subject in subjects:
         subject_path = os.path.join(dataset_path, subject)
         
-        # Session 1 for training, Session 2 for testing
-        for session in [cfg['data']['train_session'], cfg['data']['test_session']]:
+        # Session 1 for training ('1'), Session 2 for testing ('2')
+        for session in [str(cfg['data']['train_session']), str(cfg['data']['test_session'])]:
             session_path = os.path.join(subject_path, session)
             if not os.path.isdir(session_path):
                 continue
             
-            is_train = (session == cfg['data']['train_session'])
+            is_train = (session == str(cfg['data']['train_session']))
             
             for img_file in os.listdir(session_path):
                 if not img_file.endswith(cfg['data']['img_ext']):
@@ -99,26 +139,36 @@ def main():
                 except Exception as e:
                     print(f"Error processing {img_path}: {e}")
 
-    # 4. Convert to numpy arrays for matching
-    X_train, y_train = np.array(train_feats), np.array(train_labels)
-    X_test, y_test = np.array(test_feats), np.array(test_labels)
+    # 4. Convert lists to numpy arrays
+    X_train = np.array(train_feats)
+    y_train = np.array(train_labels)
+    X_test = np.array(test_feats)
+    y_test = np.array(test_labels)
 
-    # 5. Training & Matching
-    print(f"--- Training Iris Matcher with n_components={cfg['matching']['n_components']} ---")
+    if len(X_train) == 0 or len(X_test) == 0:
+        print("ERROR: No features extracted. Check dataset structure and paths.")
+        return
+
+    # 5. Training Iris Matcher
+    print(f"\n--- Training Iris Matcher (LDA Reduction: {cfg['matching']['n_components']}) ---")
     matcher = IrisMatcher(n_components=cfg['matching']['n_components'])
     matcher.fit(X_train, y_train)
 
-    # 6. Evaluation
-    print("\n--- Performance Evaluation ---")
-    # Identification Mode
+    # 6. Performance Evaluation
+    print("\n--- Performance Evaluation Results ---")
+    
+    # Identification (CRR)
+    last_preds, last_dists = None, None
     for metric in cfg['matching']['metrics']:
         preds, dists = matcher.predict(X_test, metric=metric)
         crr = evaluate_identification_crr(y_test, preds)
         print(f"Identification CRR ({metric.upper()}): {crr:.2f}%")
+        last_preds, last_dists = preds, dists # Keep last one for ROC
 
-    # Verification Mode (Using the distances from the last metric in loop, usually Cosine)
-    # This outputs the ROC curve to results/figures/
-    evaluate_verification_roc(y_test, dists, cfg['paths']['figures'])
+    # Verification (ROC Curve)
+    # Using the last distance scores (e.g., Cosine) to generate Fig 11.
+    print(f"\n>>> Generating ROC Curve in {cfg['paths']['figures']}...")
+    evaluate_verification_roc(y_test, last_preds, last_dists, cfg['paths']['figures'])
 
 if __name__ == "__main__":
     main()
