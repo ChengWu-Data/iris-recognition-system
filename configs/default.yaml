@@ -1,0 +1,37 @@
+# Dataset Configuration
+data:
+  dataset_path: "./CASIA-IrisV1"
+  train_session: "1"
+  test_session: "2"
+  img_ext: ".bmp"
+
+# Localization Parameters
+localization:
+  pupil_thresh: 60
+  iris_rad_range: [90, 150]
+
+# Normalization Parameters
+normalization:
+  out_height: 64
+  out_width: 512
+
+# Feature Extraction (Ma et al. 2003)
+features:
+  roi_height: 48
+  filter_size: 15
+  freq: 0.16667
+  delta_x1: 3.0
+  delta_y1: 1.5
+  delta_x2: 4.5
+  delta_y2: 1.5
+
+# Matching & Reduction
+matching:
+  n_components: 200
+  metrics: ["l1", "l2", "cosine"]
+
+# Output Directories
+paths:
+  results: "./results"
+  figures: "./results/figures"
+  tables: "./results/tables"
