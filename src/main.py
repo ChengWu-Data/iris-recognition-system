@@ -22,9 +22,8 @@ MODULES CALLED:
 """
 
 import os
-import cv2
+import yaml
 import numpy as np
-
 from IrisLocalization import localize_iris
 from IrisNormalization import normalize_iris
 from ImageEnhancement import enhance_image
@@ -32,72 +31,94 @@ from FeatureExtraction import extract_features
 from IrisMatching import IrisMatcher
 from PerformanceEvaluation import evaluate_identification_crr, evaluate_verification_roc
 
-def process_pipeline(img_path: str) -> np.ndarray:
-    """Executes the end-to-end preprocessing and extraction pipeline for a single image."""
-    img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
-    if img is None:
-        raise FileNotFoundError(f"Failed to load image: {img_path}")
+def setup_env(config):
+    """
+    Creates the directory structure defined in the config.
+    Ensures 'results/figures' and 'results/tables' exist.
+    """
+    for key in ['results', 'figures', 'tables']:
+        path = config['paths'][key]
+        if not os.path.exists(path):
+            os.makedirs(path, exist_ok=True)
+            # Create .gitkeep to ensure empty dirs are tracked by Git
+            with open(os.path.join(path, ".gitkeep"), "w") as f:
+                pass
 
-    pupil_params, iris_params = localize_iris(img)
-    norm_img = normalize_iris(img, pupil_params, iris_params)
+def process_pipeline(img_path, cfg):
+    """End-to-end processing for a single image using config parameters."""
+    # Note: These modules should be updated to accept the sub-config dictionaries
+    p_param, i_param = localize_iris(img_path, cfg['localization'])
+    norm_img = normalize_iris(img_path, p_param, i_param, cfg['normalization'])
     enh_img = enhance_image(norm_img)
-    feature_vector = extract_features(enh_img)
-    
-    return feature_vector
+    feat = extract_features(enh_img, cfg['features'])
+    return feat
 
 def main():
-    dataset_path = "./CASIA-IrisV1" # Adjust path as necessary
+    # 1. Load Configuration
+    config_path = os.path.join("configs", "default.yaml")
+    with open(config_path, "r") as f:
+        cfg = yaml.safe_load(f)
+    
+    # 2. Setup folders (results/figures, etc.)
+    setup_env(cfg)
     
     train_feats, train_labels = [], []
     test_feats, test_labels = [], []
 
-    print("--- Starting Feature Extraction Pipeline ---")
-    for class_dir in os.listdir(dataset_path):
-        class_path = os.path.join(dataset_path, class_dir)
-        if not os.path.isdir(class_path):
-            continue
-            
-        # Session 1 for training, Session 2 for testing 
-        for session, is_train in [('1', True), ('2', False)]:
-            session_path = os.path.join(class_path, session)
+    dataset_path = cfg['data']['dataset_path']
+    print(f"--- Starting Feature Extraction from {dataset_path} ---")
+
+    # 3. Iterate through Subjects (001, 002, ...)
+    # This restores your original logic for Session 1 and Session 2
+    subjects = sorted([d for d in os.listdir(dataset_path) if os.path.isdir(os.path.join(dataset_path, d))])
+    
+    for subject in subjects:
+        subject_path = os.path.join(dataset_path, subject)
+        
+        # Session 1 for training, Session 2 for testing
+        for session in [cfg['data']['train_session'], cfg['data']['test_session']]:
+            session_path = os.path.join(subject_path, session)
             if not os.path.isdir(session_path):
                 continue
-                
+            
+            is_train = (session == cfg['data']['train_session'])
+            
             for img_file in os.listdir(session_path):
-                if not img_file.endswith('.bmp'): # All images are BMP [cite: 12]
+                if not img_file.endswith(cfg['data']['img_ext']):
                     continue
-                    
+                
                 img_path = os.path.join(session_path, img_file)
                 try:
-                    feat = process_pipeline(img_path)
+                    feat = process_pipeline(img_path, cfg)
                     if is_train:
                         train_feats.append(feat)
-                        train_labels.append(class_dir)
+                        train_labels.append(subject)
                     else:
                         test_feats.append(feat)
-                        test_labels.append(class_dir)
+                        test_labels.append(subject)
                 except Exception as e:
-                    print(f"Skipping {img_path} due to error: {e}")
+                    print(f"Error processing {img_path}: {e}")
 
-    X_train = np.array(train_feats)
-    y_train = np.array(train_labels)
-    X_test = np.array(test_feats)
-    y_test = np.array(test_labels)
+    # 4. Convert to numpy arrays for matching
+    X_train, y_train = np.array(train_feats), np.array(train_labels)
+    X_test, y_test = np.array(test_feats), np.array(test_labels)
 
-    print("--- Training Iris Matcher ---")
-    matcher = IrisMatcher(n_components=200) # Reduced to 200 features [cite: 577]
+    # 5. Training & Matching
+    print(f"--- Training Iris Matcher with n_components={cfg['matching']['n_components']} ---")
+    matcher = IrisMatcher(n_components=cfg['matching']['n_components'])
     matcher.fit(X_train, y_train)
 
-    print("--- Performance Evaluation ---")
-    # Identification
-    for metric in ['l1', 'l2', 'cosine']:
-        preds, _ = matcher.predict(X_test, metric=metric)
+    # 6. Evaluation
+    print("\n--- Performance Evaluation ---")
+    # Identification Mode
+    for metric in cfg['matching']['metrics']:
+        preds, dists = matcher.predict(X_test, metric=metric)
         crr = evaluate_identification_crr(y_test, preds)
         print(f"Identification CRR ({metric.upper()}): {crr:.2f}%")
 
-    # Verification (using Cosine as standard)
-    _, dists = matcher.predict(X_test, metric='cosine')
-    evaluate_verification_roc(y_test, preds, dists)
+    # Verification Mode (Using the distances from the last metric in loop, usually Cosine)
+    # This outputs the ROC curve to results/figures/
+    evaluate_verification_roc(y_test, dists, cfg['paths']['figures'])
 
 if __name__ == "__main__":
     main()
