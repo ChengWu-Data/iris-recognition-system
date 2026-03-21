@@ -19,31 +19,36 @@ class IrisMatcher:
         self.pca = PCA(n_components=120) 
         self.lda = LinearDiscriminantAnalysis()
         self.scaler = StandardScaler()
-        self.class_centers = {}
         self.classes = None
+        self.class_templates = {}
         self._use_pca = True
 
     def fit(self, X: np.ndarray, y: np.ndarray, use_pca: bool = True):
         self.classes = np.unique(y)
         self._use_pca = use_pca
         num_subjects = len(self.classes)
-        
-
         max_lda_dim = num_subjects - 1
         self.lda.n_components = min(self.n_components, max_lda_dim)
-        
+
+        # 1. Normalize
         X_scaled = self.scaler.fit_transform(X)
-        
+
+        # 2. PCA + LDA
         if self._use_pca:
             X_pca = self.pca.fit_transform(X_scaled)
-            X_lda = self.lda.fit_transform(X_pca, y)
-            transformed_X = X_lda
+            X_trans = self.lda.fit_transform(X_pca, y)
         else:
-            transformed_X = X_scaled
-        
+            X_trans = X_scaled
+
+        # 3. Store all templates per class
+        self.class_templates = {cls: [] for cls in self.classes}
+
+        for i in range(len(X_trans)):
+            cls = y[i]
+            self.class_templates[cls].append(X_trans[i])
+
         for cls in self.classes:
-            idx = np.where(y == cls)[0]
-            self.class_centers[cls] = np.mean(transformed_X[idx], axis=0)
+            self.class_templates[cls] = np.array(self.class_templates[cls])
 
     def predict(self, X: np.ndarray, metric: str = 'l1'):
         X_scaled = self.scaler.transform(X)
@@ -54,15 +59,33 @@ class IrisMatcher:
         else:
             transformed_X = X_scaled
             
-        centers_matrix = np.array([self.class_centers[cls] for cls in self.classes])
-        
-        dist_methods = {'l1': 'cityblock', 'l2': 'euclidean', 'cosine': 'cosine'}
+        dist_methods = {
+            'l1': 'cityblock',
+            'l2': 'euclidean',
+            'cosine': 'cosine'
+        }
         method = dist_methods.get(metric.lower(), 'cityblock')
-        
-        dists = cdist(transformed_X, centers_matrix, metric=method)
-        
-        pred_indices = np.argmin(dists, axis=1)
-        pred_labels = np.array([self.classes[i] for i in pred_indices])
-        min_dists = np.min(dists, axis=1)
-        
-        return pred_labels, min_dists
+
+        preds = []
+        min_dists = []
+
+        for x in transformed_X:
+            best_cls = None
+            best_dist = float('inf')
+
+            # Compare with EACH class
+            for cls in self.classes:
+                templates = self.class_templates[cls]
+
+                # MIN distance over templates
+                dists = cdist([x], templates, metric=method)
+                dist = np.min(dists)
+
+                if dist < best_dist:
+                    best_dist = dist
+                    best_cls = cls
+
+            preds.append(best_cls)
+            min_dists.append(best_dist)
+
+        return np.array(preds), np.array(min_dists)

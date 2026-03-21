@@ -48,8 +48,8 @@ if current_dir not in sys.path:
 
 from IrisLocalization import localize_iris
 from IrisNormalization import normalize_iris
-from ImageEnhancement import enhance_image
-from FeatureExtraction import extract_features
+from ImageEnhancement import enhance_image, is_good_quality
+from FeatureExtraction import extract_features, extract_templates
 from IrisMatching import IrisMatcher
 from PerformanceEvaluation import evaluate_identification_crr, evaluate_verification_roc
 
@@ -65,7 +65,7 @@ def process_pipeline(img_path, cfg):
     p_param, i_param = localize_iris(img, cfg['localization'])
     norm_img = normalize_iris(img, p_param, i_param, cfg['normalization'])
     enh_img = enhance_image(norm_img)
-    return extract_features(enh_img, cfg['features'])
+    return enh_img
 
 def main():
     root_dir = os.path.dirname(current_dir)
@@ -87,11 +87,22 @@ def main():
             for img_file in os.listdir(sess_path):
                 if not img_file.endswith(cfg['data']['img_ext']): continue
                 try:
-                    feat = process_pipeline(os.path.join(sess_path, img_file), cfg)
+                    enh_img = process_pipeline(os.path.join(sess_path, img_file), cfg)
+
+                    if not is_good_quality(enh_img):
+                        continue
+
                     if sess == str(cfg['data']['train_session']):
-                        train_feats.append(feat); train_labels.append(subject)
+                        templates = extract_templates(enh_img)
+
+                        for t in templates:
+                            train_feats.append(t)
+                            train_labels.append(subject)
+
                     else:
-                        test_feats.append(feat); test_labels.append(subject)
+                        feat = extract_features(enh_img)
+                        test_feats.append(feat)
+                        test_labels.append(subject)
                 except Exception as e:
                     print(f"[ERROR] {img_file}: {e}")
 

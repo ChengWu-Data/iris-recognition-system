@@ -34,3 +34,33 @@ def enhance_image(norm_img: np.ndarray) -> np.ndarray:
     enhanced_img = clahe.apply(corrected_img)
     
     return enhanced_img
+
+def compute_quality(enh_img):
+    # use ROI (same as feature extraction)
+    roi = enh_img[0:48, :]
+
+    # FFT
+    F = np.fft.fftshift(np.fft.fft2(roi))
+    magnitude = np.abs(F)
+
+    h, w = magnitude.shape
+    cy, cx = h // 2, w // 2
+
+    Y, X = np.ogrid[:h, :w]
+    r = np.sqrt((Y - cy)**2 + (X - cx)**2)
+
+    # frequency bands (paper: (0,6), (6,22), (22,32))
+    F1 = magnitude[(r >= 0) & (r < 6)].sum()
+    F2 = magnitude[(r >= 6) & (r < 22)].sum()
+    F3 = magnitude[(r >= 22) & (r < 32)].sum()
+
+    total_power = F1 + F2 + F3
+    ratio = F2 / (F1 + F3 + 1e-6)
+
+    return total_power, ratio
+
+def is_good_quality(enh_img):
+    total_power, ratio = compute_quality(enh_img)
+
+    # thresholds
+    return (total_power > 1e6) and (ratio > 0.7)

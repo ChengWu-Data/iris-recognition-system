@@ -43,3 +43,15 @@ def extract_features(enhanced_img: np.ndarray, config=None) -> np.ndarray:
     features = (features - np.mean(features)) / (np.std(features) + 1e-6)
 
     return features
+
+def extract_templates(enh_img):
+    angles = [-9, -6, -3, 0, 3, 6, 9]
+    features = []
+
+    for a in angles:
+        shift = int(a / 360.0 * enh_img.shape[1])
+        rotated = np.roll(enh_img, shift, axis=1)
+        feat = extract_features(rotated)
+        features.append(feat)
+
+    return features

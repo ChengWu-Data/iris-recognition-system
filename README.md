@@ -165,6 +165,12 @@ This module improves contrast and compensates for nonuniform illumination in the
 2. Expand the coarse background to full image size using bicubic interpolation.
 3. Subtract estimated illumination from the normalized image.
 4. Apply local contrast enhancement using **CLAHE**.
+5. Perform image quality assessment using frequency-domain analysis:
+   - Compute the **2D Fourier spectrum** of the enhanced iris ROI.
+   - Divide frequency into low (F1), middle (F2), and high (F3) bands.
+   - Compute the quality ratio:
+     `ratio = F2 / (F1 + F3)`
+   - Filter out low-quality images based on this ratio.
 
 #### Output
 
@@ -173,6 +179,8 @@ An enhanced normalized iris image.
 #### Notes
 
 This implementation is consistent with the general enhancement idea in Ma et al. (2003): compensate for uneven illumination first, then improve local contrast before feature extraction. 
+
+The added quality assessment step follows the paper’s approach of analyzing frequency distribution to distinguish clear iris images from defocused, motion-blurred, or occluded ones. A threshold-based method is used instead of the original SVM classifier for simplicity.
 
 ---
 
@@ -196,9 +204,21 @@ This module extracts a compact numerical representation of iris texture from the
    * **Mean Absolute Deviation (MAD)**
 6. Concatenate all block features into a single feature vector.
 
+#### Rotation Compensation (Template Generation)
+
+To handle eye rotation, multiple templates are generated:
+
+1. Shift the normalized iris image horizontally to simulate rotation:
+   ```python
+   np.roll(enh_img, shift, axis=1)
+2. Use angles: [-9, -6, -3, 0, 3, 6, 9] degrees.
+3. Extract features for each rotated version.
+4. Store all resulting feature vectors as templates.
+
 #### Output
 
-A **1536-dimensional feature vector**.
+7 feature templates per image (with rotation compensation)
+**1536-dimensional feature vector**.
 
 #### Why 1536 dimensions?
 
@@ -559,7 +579,17 @@ Further improvements to performance and evaluation (e.g., parameter tuning and v
 
 ---
 **Member 2: Jinbo Li (jl7239)**  
-**Role: [To be completed]**
+### Contributions
+
+Modified feature extraction to use the **magnitude of filter responses |F(x, y)|** instead of raw values, improving robustness to phase variations and noise.
+
+Implemented **rotation compensation** by generating multiple templates per image using circular shifts, following the approach in Ma et al. (2003).
+
+Added an **image quality selection** step based on frequency-domain analysis to filter out blurred, occluded, or low-quality iris images.
+
+Improved pipeline stability with additional **error handling** to skip failed samples during processing.
+
+Updated iris normalization to use **bilinear interpolation**, resulting in more accurate texture mapping.
 
 ---
 
