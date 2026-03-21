@@ -542,38 +542,20 @@ This repository is organized as a runnable course project implementation. The em
 
 **Member 1: Cheng Wu (cw3729)**  
 
-Contributed to the implementation of the iris recognition pipeline based on the framework described in Ma et al. (2003).
+Contributed to building the iris recognition pipeline based on Ma et al. (2003), including preprocessing, feature extraction, matching, and evaluation.
 
-Worked on core preprocessing components:
-- Implemented iris localization using thresholding, contour detection, and Circular Hough Transform
-- Implemented iris normalization using a non-concentric rubber sheet model
+Worked on iris localization using thresholding, contour detection, and Circular Hough Transform, and implemented normalization using a non-concentric rubber sheet model.
 
-Contributed to the feature extraction stage:
-- Implemented dual-channel spatial filters inspired by the paper
-- Designed block-wise feature encoding using Mean and MAD, resulting in a 1536-dimensional feature vector
+Implemented the feature extraction process using two spatial filters and block-wise statistics (Mean and MAD), resulting in a 1536-dimensional feature vector.
 
-Contributed to the matching pipeline:
-- Applied feature scaling (StandardScaler)
-- Implemented PCA and Fisher Linear Discriminant (FLD)
-- Implemented a nearest-center classifier with L1, L2, and cosine distance metrics
+Worked on the matching pipeline, including feature scaling, PCA + Fisher Linear Discriminant (FLD), and nearest-center classification with L1, L2, and cosine distance metrics.
 
-Worked on debugging and refinement:
-- Resolved the LDA dimensionality constraint issue
-- Improved feature stability through ROI selection (middle rows of normalized image)
-- Addressed scaling inconsistencies between feature components
+Helped debug and improve the system by fixing the LDA dimensionality issue, adjusting ROI selection to reduce eyelash interference, and resolving feature scaling inconsistencies.
 
-Contributed to system integration:
-- Helped develop the main execution pipeline (main.py)
-- Assisted in connecting different modules into an end-to-end workflow
-
-Contributed to evaluation and documentation:
-- Implemented CRR computation and ROC curve generation
-- Contributed to the preparation of the README and documentation
-
----
+Also contributed to integrating the full pipeline in main.py, generating CRR and ROC results, and preparing the README and documentation.
 
 Note:
-Further performance improvements (e.g., parameter tuning, verification protocol refinement, and robustness improvements) will be completed collaboratively within the group.
+Further improvements to performance and evaluation (e.g., parameter tuning and verification protocol refinement) will be completed collaboratively within the group.
 
 
 **Member 2: Jinbo Li (jl7239)**  
