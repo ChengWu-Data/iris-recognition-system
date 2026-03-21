@@ -538,7 +538,7 @@ This repository is organized as a runnable course project implementation. The em
 
 
 
-## Team Members and Contributions
+## 15. Team Members and Contributions
 
 **Member 1: Cheng Wu (cw3729)**  
 
