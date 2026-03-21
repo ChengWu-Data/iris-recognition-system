@@ -40,155 +40,86 @@ import sys
 import yaml
 import cv2
 import numpy as np
+import pandas as pd
 
-# --- PATH FIX FOR LOCAL MODULES ---
-# This ensures that even if you run from the root folder, 
-# Python can find IrisLocalization.py, etc., inside the src/ folder.
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-# Import local modules with Robust Error Handling
-try:
-    from IrisLocalization import localize_iris
-    from IrisNormalization import normalize_iris
-    from ImageEnhancement import enhance_image
-    from FeatureExtraction import extract_features
-    from IrisMatching import IrisMatcher
-    from PerformanceEvaluation import evaluate_identification_crr, evaluate_verification_roc
-    print(">>> All iris modules loaded successfully.")
-except ImportError as e:
-    print(f"DEBUG ERROR: Failed to import local modules. {e}")
-    print(f"Current sys.path: {sys.path}")
-    sys.exit(1)
+from IrisLocalization import localize_iris
+from IrisNormalization import normalize_iris
+from ImageEnhancement import enhance_image
+from FeatureExtraction import extract_features
+from IrisMatching import IrisMatcher
+from PerformanceEvaluation import evaluate_identification_crr, evaluate_verification_roc
 
 def setup_env(config):
-    """Creates the directory structure defined in the config."""
-    paths_to_create = [
-        config['paths']['results'],
-        config['paths']['figures'],
-        config['paths']['tables']
-    ]
-    for path in paths_to_create:
-        if not os.path.exists(path):
-            os.makedirs(path, exist_ok=True)
-            # Create .gitkeep to ensure empty folders are tracked by Git
-            with open(os.path.join(path, ".gitkeep"), "w") as f:
-                pass
-    print(f">>> Environment setup complete. Results will be saved to: {config['paths']['results']}")
+    for key in ['results', 'figures', 'tables']:
+        path = config['paths'][key]
+        os.makedirs(path, exist_ok=True)
+    print(f">>> Environment ready. Results: {config['paths']['results']}")
 
 def process_pipeline(img_path, cfg):
-    """Executes the end-to-end preprocessing and extraction for a single image."""
     img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
-    if img is None:
-        raise FileNotFoundError(f"Failed to load image: {img_path}")
-
-    # 1. Localization
+    if img is None: raise FileNotFoundError(f"Failed: {img_path}")
     p_param, i_param = localize_iris(img, cfg['localization'])
-    
-    # 2. Normalization
     norm_img = normalize_iris(img, p_param, i_param, cfg['normalization'])
-    
-    # 3. Enhancement
     enh_img = enhance_image(norm_img)
-    
-    # 4. Feature Extraction
-    feature_vector = extract_features(enh_img, cfg['features'])
-    
-    return feature_vector
+    return extract_features(enh_img, cfg['features'])
 
 def main():
-    # 1. Load Configuration from YAML
-    # We look for the config file relative to the project root
     root_dir = os.path.dirname(current_dir)
     config_path = os.path.join(root_dir, "configs", "default.yaml")
     
-    if not os.path.exists(config_path):
-        print(f"CRITICAL ERROR: Config not found at {config_path}")
-        return
+    with open(config_path, "r") as f:
+        cfg = yaml.safe_load(f)
 
-    try:
-        with open(config_path, "r") as f:
-            cfg = yaml.safe_load(f)
-    except Exception as e:
-        print(f"CRITICAL ERROR: Could not read config file. {e}")
-        return
-
-    # 2. Initialize folders
     setup_env(cfg)
-    
-    train_feats, train_labels = [], []
-    test_feats, test_labels = [], []
-
-    # Ensure dataset path is absolute
+    train_feats, train_labels, test_feats, test_labels = [], [], [], []
     dataset_path = os.path.join(root_dir, "CASIA-IrisV1")
-    print(f"\n--- Starting Feature Extraction Pipeline ---")
-    print(f"Dataset Path: {dataset_path}")
 
-    if not os.path.exists(dataset_path):
-        print(f"ERROR: Dataset directory not found at {dataset_path}")
-        print("Please ensure your 'CASIA-IrisV1' folder is inside the project root.")
-        return
-
-    # 3. Iterate through Subjects (001, 002, ...)
+    # 1. Feature Extraction
     subjects = sorted([d for d in os.listdir(dataset_path) if os.path.isdir(os.path.join(dataset_path, d))])
-    
     for subject in subjects:
-        subject_path = os.path.join(dataset_path, subject)
-        
-        # Session 1 for training ('1'), Session 2 for testing ('2')
-        for session in [str(cfg['data']['train_session']), str(cfg['data']['test_session'])]:
-            session_path = os.path.join(subject_path, session)
-            if not os.path.isdir(session_path):
-                continue
-            
-            is_train = (session == str(cfg['data']['train_session']))
-            
-            for img_file in os.listdir(session_path):
-                if not img_file.endswith(cfg['data']['img_ext']):
-                    continue
-                
-                img_path = os.path.join(session_path, img_file)
+        for sess in [str(cfg['data']['train_session']), str(cfg['data']['test_session'])]:
+            sess_path = os.path.join(dataset_path, subject, sess)
+            if not os.path.isdir(sess_path): continue
+            for img_file in os.listdir(sess_path):
+                if not img_file.endswith(cfg['data']['img_ext']): continue
                 try:
-                    feat = process_pipeline(img_path, cfg)
-                    if is_train:
-                        train_feats.append(feat)
-                        train_labels.append(subject)
+                    feat = process_pipeline(os.path.join(sess_path, img_file), cfg)
+                    if sess == str(cfg['data']['train_session']):
+                        train_feats.append(feat); train_labels.append(subject)
                     else:
-                        test_feats.append(feat)
-                        test_labels.append(subject)
-                except Exception as e:
-                    print(f"Skipping {img_path}: {e}")
+                        test_feats.append(feat); test_labels.append(subject)
+                except: continue
 
-    # 4. Convert lists to numpy arrays
-    X_train = np.array(train_feats)
-    y_train = np.array(train_labels)
-    X_test = np.array(test_feats)
-    y_test = np.array(test_labels)
+    X_train, y_train = np.array(train_feats), np.array(train_labels)
+    X_test, y_test = np.array(test_feats), np.array(test_labels)
 
-    if len(X_train) == 0 or len(X_test) == 0:
-        print("ERROR: No features extracted. Check dataset structure.")
-        return
-
-    # 5. Training Iris Matcher
-    print(f"\n--- Training Iris Matcher (LDA Reduction: {cfg['matching']['n_components']}) ---")
+    # 2. Evaluation Table Generation (Required by Step 6)
+    results_list = []
     matcher = IrisMatcher(n_components=cfg['matching']['n_components'])
-    matcher.fit(X_train, y_train)
-
-    # 6. Performance Evaluation
-    print("\n--- Performance Evaluation Results ---")
     
-    # Identification (CRR)
-    last_preds, last_dists = None, None
-    for metric in cfg['matching']['metrics']:
-        preds, dists = matcher.predict(X_test, metric=metric)
-        crr = evaluate_identification_crr(y_test, preds)
-        print(f"Identification CRR ({metric.upper()}): {crr:.2f}%")
-        last_preds, last_dists = preds, dists 
+    for space_name, use_pca in [('Original', False), ('Reduced', True)]:
+        print(f"\n--- Testing in {space_name} Space ---")
+        matcher.fit(X_train, y_train, use_pca=use_pca)
+        for metric in cfg['matching']['metrics']:
+            preds, dists = matcher.predict(X_test, metric=metric)
+            crr = evaluate_identification_crr(y_test, preds)
+            print(f"{metric.upper()} CRR: {crr:.2f}%")
+            results_list.append({
+                'Space': space_name, 
+                'Dim': 1536 if not use_pca else cfg['matching']['n_components'],
+                'Metric': metric.upper(), 'CRR (%)': f"{crr:.2f}%"
+            })
+            if space_name == 'Reduced' and metric == 'cosine': # Save ROC for the best combo
+                evaluate_verification_roc(y_test, preds, dists, cfg['paths']['figures'])
 
-    # Verification (ROC Curve)
-    print(f"\n>>> Generating ROC Curve in {cfg['paths']['figures']}...")
-    evaluate_verification_roc(y_test, last_preds, last_dists, cfg['paths']['figures'])
+    # 3. Save Table
+    df = pd.DataFrame(results_list)
+    df.to_csv(os.path.join(cfg['paths']['tables'], 'recognition_results.csv'), index=False)
+    print(f"\n>>> Table saved to {cfg['paths']['tables']}")
 
 if __name__ == "__main__":
     main()
