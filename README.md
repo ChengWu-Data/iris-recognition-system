@@ -543,7 +543,7 @@ This repository is organized as a runnable course project implementation. The em
 **Member 1: Cheng Wu (cw3729)**  
 
 - Designed and implemented the overall iris recognition pipeline, ensuring consistency with the framework described in Ma et al. (2003).
-- Led the implementation of the core preprocessing modules:
+- Implementation of the core preprocessing modules:
   - Iris localization using thresholding, contour detection, and Circular Hough Transform
   - Iris normalization using a non-concentric rubber sheet model
 - Developed the feature extraction pipeline:
@@ -559,7 +559,7 @@ This repository is organized as a runnable course project implementation. The em
   - Addressed scaling inconsistencies between feature components
 - Developed the main execution pipeline (`main.py`) and coordinated module integration
 - Implemented evaluation pipeline for CRR computation and ROC curve generation
-- Organized repository structure and authored the main README, including system design explanation and limitations
+- Authored README
 
 ---
 
