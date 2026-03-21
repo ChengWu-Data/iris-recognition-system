@@ -25,20 +25,21 @@ def normalize_iris(img: np.ndarray, pupil_params: tuple, iris_params: tuple, cfg
     
     cos_t = np.cos(theta)
     sin_t = np.sin(theta)
-    
+
+    x_p = xp + rp * cos_t
+    y_p = yp + rp * sin_t
+    x_i = xi + ri * cos_t
+    y_i = yi + ri * sin_t
+
     for j in range(angular_res):
-        x_p = xp + rp * cos_t[j]
-        y_p = yp + rp * sin_t[j]
-        
-        x_i = xi + ri * cos_t[j]
-        y_i = yi + ri * sin_t[j]
-        
         for i in range(radial_res):
             r = i / radial_res
-            curr_x = (1 - r) * x_p + r * x_i
-            curr_y = (1 - r) * y_p + r * y_i
+
+            curr_x = (1 - r) * x_p[j] + r * x_i[j]
+            curr_y = (1 - r) * y_p[j] + r * y_i[j]
             
             if 0 <= curr_x < img.shape[1]-1 and 0 <= curr_y < img.shape[0]-1:
+
                 norm_img[i, j] = img[int(curr_y), int(curr_x)]
                 
     return norm_img
