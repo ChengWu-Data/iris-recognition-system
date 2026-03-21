@@ -19,6 +19,7 @@
     * Integrated **StandardScaler** to fix feature scaling issues between Mean and MAD values.
     * Optimized the **ROI (Region of Interest)** to 15-63 rows to effectively bypass eyelash and eyelid occlusion in the CASIA-IrisV1 dataset.
 * **Testing & Infrastructure**: Developed the `main.py` execution script and the automated evaluation suite to generate CRR tables and ROC curves.
+* **Documentation**: Authored the README, including the system design logic, script-level documentation, and analysis of model limitations.
 
 ### Member 2
 
