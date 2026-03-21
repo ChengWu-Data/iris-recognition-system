@@ -19,22 +19,27 @@ def _create_spatial_filter(size: int, delta_x: float, delta_y: float, freq: floa
     return kernel - np.mean(kernel)
 
 def extract_features(enhanced_img: np.ndarray, config=None) -> np.ndarray:
+    roi = enhanced_img[0:48, :]
 
-    roi = enhanced_img[10:58, :]
-    
-    filter_1 = _create_spatial_filter(size=15, delta_x=3.0, delta_y=1.5, freq=1/6.0)
-    filter_2 = _create_spatial_filter(size=15, delta_x=4.5, delta_y=1.5, freq=1/6.0)
-    
+    filter_1 = _create_spatial_filter(15, 3.0, 1.5, 1/6.0)
+    filter_2 = _create_spatial_filter(15, 4.5, 1.5, 1/6.0)
+
     f1 = cv2.filter2D(roi, cv2.CV_32F, filter_1)
     f2 = cv2.filter2D(roi, cv2.CV_32F, filter_2)
-    
+
     features = []
+
     for i in range(0, 48, 8):
         for j in range(0, 512, 8):
             for block in [f1[i:i+8, j:j+8], f2[i:i+8, j:j+8]]:
-                mean = np.mean(block)
-                # Mean Absolute Deviation (MAD)
-                mad = np.mean(np.abs(block - mean))
+                mag = np.abs(block)
+                mean = np.mean(mag)
+                mad = np.mean(np.abs(mag - mean))
                 features.extend([mean, mad])
-                
-    return np.array(features)
+
+    features = np.array(features)
+
+    # Normalize
+    features = (features - np.mean(features)) / (np.std(features) + 1e-6)
+
+    return features

@@ -23,7 +23,10 @@ def enhance_image(norm_img: np.ndarray) -> np.ndarray:
     bg_illumination = cv2.resize(coarse_bg, (N, M), interpolation=cv2.INTER_CUBIC)
     
     # Subtract to compensate for lighting [cite: 288]
-    corrected_img = cv2.subtract(norm_img, bg_illumination.astype(np.uint8))
+    corrected_img = cv2.normalize(
+        norm_img.astype(np.float32) - bg_illumination,
+        None, 0, 255, cv2.NORM_MINMAX
+    ).astype(np.uint8)
     
     # 2. Contrast enhancement
     # Histogram equalization in 32x32 regions (CLAHE is a modern standard equivalent) [cite: 289]

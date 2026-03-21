@@ -13,6 +13,17 @@ KEY VARIABLES:
 import cv2
 import numpy as np
 
+def bilinear(img, x, y):
+    x0, y0 = int(x), int(y)
+    x1, y1 = min(x0+1, img.shape[1]-1), min(y0+1, img.shape[0]-1)
+
+    dx, dy = x - x0, y - y0
+
+    val = (1-dx)*(1-dy)*img[y0,x0] + dx*(1-dy)*img[y0,x1] + \
+          (1-dx)*dy*img[y1,x0] + dx*dy*img[y1,x1]
+
+    return int(val)
+
 def normalize_iris(img: np.ndarray, pupil_params: tuple, iris_params: tuple, cfg: dict) -> np.ndarray:
     radial_res = cfg.get('radial_res', 64)
     angular_res = cfg.get('angular_res', 512)
@@ -33,13 +44,12 @@ def normalize_iris(img: np.ndarray, pupil_params: tuple, iris_params: tuple, cfg
 
     for j in range(angular_res):
         for i in range(radial_res):
-            r = i / radial_res
+            r = i / (radial_res - 1)
 
             curr_x = (1 - r) * x_p[j] + r * x_i[j]
             curr_y = (1 - r) * y_p[j] + r * y_i[j]
-            
-            if 0 <= curr_x < img.shape[1]-1 and 0 <= curr_y < img.shape[0]-1:
 
-                norm_img[i, j] = img[int(curr_y), int(curr_x)]
+            if 0 <= curr_x < img.shape[1]-1 and 0 <= curr_y < img.shape[0]-1:
+                norm_img[i, j] = bilinear(img, curr_x, curr_y)
                 
     return norm_img

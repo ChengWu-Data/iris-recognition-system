@@ -92,7 +92,8 @@ def main():
                         train_feats.append(feat); train_labels.append(subject)
                     else:
                         test_feats.append(feat); test_labels.append(subject)
-                except: continue
+                except Exception as e:
+                    print(f"[ERROR] {img_file}: {e}")
 
     X_train, y_train = np.array(train_feats), np.array(train_labels)
     X_test, y_test = np.array(test_feats), np.array(test_labels)
