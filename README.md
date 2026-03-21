@@ -538,4 +538,35 @@ This repository is organized as a runnable course project implementation. The em
 
 
 
+## Team Members and Contributions
 
+**Member 1: Cheng Wu (cw3729)**  
+
+- Designed and implemented the overall iris recognition pipeline, ensuring consistency with the framework described in Ma et al. (2003).
+- Led the implementation of the core preprocessing modules:
+  - Iris localization using thresholding, contour detection, and Circular Hough Transform
+  - Iris normalization using a non-concentric rubber sheet model
+- Developed the feature extraction pipeline:
+  - Implemented dual-channel spatial filters inspired by the paper
+  - Designed block-wise feature encoding using Mean and MAD, resulting in a 1536-dimensional feature vector
+- Built the matching pipeline:
+  - Integrated feature scaling (StandardScaler)
+  - Implemented PCA + Fisher Linear Discriminant (FLD)
+  - Developed a nearest-center classifier with L1, L2, and cosine distance metrics
+- Resolved key technical issues during development:
+  - Fixed the LDA dimensionality constraint problem
+  - Improved feature stability through ROI selection (middle rows of normalized image)
+  - Addressed scaling inconsistencies between feature components
+- Developed the main execution pipeline (`main.py`) and coordinated module integration
+- Implemented evaluation pipeline for CRR computation and ROC curve generation
+- Organized repository structure and authored the main README, including system design explanation and limitations
+
+---
+
+**Member 2: Jinbo Li (jl7239)**  
+**Role: [To be completed]**
+
+---
+
+**Member 3: Yuan Ji (yj2904)**  
+**Role: [To be completed]**
