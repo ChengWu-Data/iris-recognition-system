@@ -557,7 +557,7 @@ Also contributed to integrating the full pipeline in main.py, generating CRR and
 Note:
 Further improvements to performance and evaluation (e.g., parameter tuning and verification protocol refinement) will be completed collaboratively within the group.
 
-
+---
 **Member 2: Jinbo Li (jl7239)**  
 **Role: [To be completed]**
 
