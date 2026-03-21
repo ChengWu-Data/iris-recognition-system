@@ -1,28 +1,38 @@
 """
 RESPONSIBILITY:
 1. Feature reduction: Uses PCA followed by Fisher Linear Discriminant (FLD/LDA) to reduce the 
-   1536-dimensional vector to a lower-dimensional space (e.g., 200)[cite: 374, 378, 577].
-2. Nearest Center Classifier: Classify based on distance to class centroids[cite: 374, 384].
-3. Support L1, L2, and Cosine similarity measures[cite: 390].
+   1536-dimensional vector to a lower-dimensional space (e.g., 200).
+2. Nearest Center Classifier: Classify based on distance to class centroids.
+3. Support L1, L2, and Cosine similarity measures.
 """
 
 import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from scipy.spatial.distance import cdist
+from typing import Tuple, List, Dict  # <--- CRITICAL: Add this line
 
 class IrisMatcher:
     def __init__(self, n_components: int = 200):
         self.n_components = n_components
-        self.pca = PCA(n_components=min(300, n_components * 2)) # Intermediate reduction
-        self.lda = LinearDiscriminantAnalysis(n_components=n_components)
-        self.class_centers = {}
-        self.classes = []
+        # Intermediate reduction to avoid LDA issues with small datasets
+        self.pca = PCA(n_components=None) 
+        self.lda = LinearDiscriminantAnalysis()
+        self.class_centers: Dict[str, np.ndarray] = {}
+        self.classes: np.ndarray = np.array([])
 
     def fit(self, X: np.ndarray, y: np.ndarray):
         """Fit the dimension reduction models and compute class centroids."""
-        # 1. Feature Reduction [cite: 374]
+        # 1. Feature Reduction
+        # First use PCA to reduce to a manageable size (n_samples - n_classes)
+        n_samples = X.shape[0]
+        n_classes = len(np.unique(y))
+        self.pca.n_components = min(n_samples - n_classes, 500)
+        
         X_pca = self.pca.fit_transform(X)
+        
+        # Then use LDA
+        self.lda.n_components = min(n_classes - 1, self.n_components)
         X_lda = self.lda.fit_transform(X_pca, y)
         
         # 2. Compute Nearest Centers
@@ -33,7 +43,7 @@ class IrisMatcher:
 
     def predict(self, X: np.ndarray, metric: str = 'cosine') -> Tuple[np.ndarray, np.ndarray]:
         """
-        Predict labels for X based on the specified metric ('l1', 'l2', 'cosine')[cite: 390].
+        Predict labels for X based on the specified metric ('l1', 'l2', 'cosine').
         Returns predicted labels and the distance to the predicted center.
         """
         X_pca = self.pca.transform(X)
