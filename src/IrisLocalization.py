@@ -54,7 +54,7 @@ def localize_iris(img: np.ndarray, config=None) -> Tuple[Tuple[int, int, int], T
             param1=100, param2=p2, minRadius=90, maxRadius=130
         )
         if circles is not None:
-            circles = np.uint16(np.around(circles[0, :]))
+            circles = np.round(circles[0, :]).astype(int)
             best = min(circles, key=lambda c: (c[0]-xp)**2 + (c[1]-yp)**2)
             iris_params = (int(best[0]), int(best[1]), int(best[2]))
             break
