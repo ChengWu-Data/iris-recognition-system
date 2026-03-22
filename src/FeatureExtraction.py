@@ -1,4 +1,7 @@
 """
+RESPONSIBILITY:
+Extracts iris texture features from the enhanced normalized iris image.
+
 LOGIC:
 1. ROI Selection: Focuses on the 10:58 rows of the normalized image to avoid 
    eyelash and eyelid occlusions at the top.
@@ -6,6 +9,11 @@ LOGIC:
    texture at different scales.
 3. Feature Encoding: Calculates Mean and Mean Absolute Deviation (MAD) for 
    8x8 blocks to form a 1536-D vector.
+
+NOTES:
+- The current configuration was obtained empirically from repeated experiments.
+- Block size is kept at 8x8 because smaller or wider alternatives reduced CRR.
+- The current filter pair is the strongest stable version found so far.
 """
 
 import cv2
@@ -29,17 +37,19 @@ def extract_features(enhanced_img: np.ndarray, config=None) -> np.ndarray:
 
     features = []
 
-    for i in range(0, roi.shape[0], 8):
-        for j in range(0, roi.shape[1], 8):
-            for block in [f1[i:i+8, j:j+8], f2[i:i+8, j:j+8]]:
+    block_h = 8
+    block_w = 8
+
+    for i in range(0, roi.shape[0], block_h):
+        for j in range(0, roi.shape[1], block_w):
+            for block in [f1[i:i+block_h, j:j+block_w], f2[i:i+block_h, j:j+block_w]]:
                 mag = np.abs(block)
                 mean = np.mean(mag)
                 mad = np.mean(np.abs(mag - mean))
                 features.extend([mean, mad])
 
-    features = np.array(features)
+    features = np.array(features, dtype=np.float32)
 
-    # Normalize
     norm = np.linalg.norm(features) + 1e-6
     features = features / norm
 

@@ -1,38 +1,47 @@
 """
 PROJECT DESCRIPTION:
-This is the main entry point for the Iris Recognition Group Project based on the Ma et al. (2003) paper. 
-It processes the CASIA Iris Image Database (version 1.0)[cite: 7], extracting features from Session 1 
-for training and evaluating against Session 2 for testing.
+Main entry point for the current iris recognition pipeline based on the
+CASIA-IrisV1 dataset.
 
-PIPELINE REMARKS:
-1. Load images from the dataset directory.
-2. Preprocessing: Localization -> Normalization -> Enhancement[cite: 25, 26, 28].
-3. Feature Extraction: Generate a 1536-dimensional feature vector using spatial filters[cite: 373].
-4. Matching: Reduce dimensions via PCA/FLD and classify using the Nearest Center Classifier[cite: 374].
-5. Evaluation: Calculate Correct Recognition Rate (CRR) for identification and False Match/Non-Match 
-   Rates for the ROC curve in verification[cite: 31, 32].
+CURRENT PIPELINE:
+1. Load Dataset:
+   Uses Session 1 images for training and Session 2 images for testing.
 
-MODULES CALLED:
-- src.IrisLocalization
-- src.IrisNormalization
-- src.ImageEnhancement
-- src.FeatureExtraction
-- src.IrisMatching
-- src.PerformanceEvaluation
-"""
+2. Preprocessing:
+   Applies:
+   - iris localization
+   - rubber-sheet normalization
+   - illumination correction and contrast enhancement
 
-"""
-PROJECT DESCRIPTION:
-This is the main entry point for the Iris Recognition Group Project based on the Ma et al. (2003) paper. 
-It processes the CASIA Iris Image Database (version 1.0), extracting features from Session 1 
-for training and evaluating against Session 2 for testing.
+3. Quality-Ranked Sample Selection:
+   For each subject/session, computes a frequency-based quality score for all
+   candidate images, sorts them deterministically, and keeps:
+   - top 3 images for training
+   - top 2 images for testing
 
-PIPELINE REMARKS:
-1. Load images from the dataset directory.
-2. Preprocessing: Localization -> Normalization -> Enhancement.
-3. Feature Extraction: Generate 1536-dimensional feature vectors.
-4. Matching: LDA dimension reduction and Nearest Center Classifier.
-5. Evaluation: Calculate CRR for identification and ROC for verification.
+4. Feature Extraction:
+   Extracts block-based texture features from the enhanced normalized iris image
+   using the current dual-filter feature encoder.
+
+5. Matching:
+   Evaluates both:
+   - Original feature space
+   - Reduced feature space (PCA + LDA)
+   using nearest-center classification.
+
+6. Metrics and Outputs:
+   Reports Correct Recognition Rate (CRR) under:
+   - L1 distance
+   - L2 distance
+   - cosine distance
+   and saves the ROC-related verification curve for the reduced cosine setting.
+
+CURRENT STABLE VERSION:
+- deterministic file ordering
+- deterministic candidate ranking
+- quality-ranked sample selection
+- tuned filter pair
+- tuned PCA dimensionality
 """
 
 import os
@@ -116,10 +125,8 @@ def main():
                 except Exception as e:
                     print(f"[ERROR] {img_file}: {e}")
 
-            # sort by quality score (descending)
             candidates.sort(key=lambda x: (-x["quality_score"], x["img_file"]))
 
-            # choose top-k depending on session
             if sess == str(cfg['data']['train_session']):
                 selected = candidates[:train_top_k]
                 for item in selected:
@@ -132,8 +139,7 @@ def main():
                     feat = extract_features(item["enh_img"])
                     test_feats.append(feat)
                     test_labels.append(subject)
-
-            # optional debug print
+            #debug print
             if len(candidates) > 0:
                 selected_names = [item["img_file"] for item in selected]
                 print(
@@ -147,7 +153,6 @@ def main():
     X_test, y_test = np.array(test_feats), np.array(test_labels)
     print(f"[DATA] train samples={len(train_feats)}, test samples={len(test_feats)}")
 
-    # 2. Evaluation Table Generation (Required by Step 6)
     results_list = []
     matcher = IrisMatcher(n_components=cfg['matching']['n_components'])
     
@@ -166,7 +171,6 @@ def main():
             if space_name == 'Reduced' and metric == 'cosine': # Save ROC for the best combo
                 evaluate_verification_roc(y_test, preds, dists, cfg['paths']['figures'])
 
-    # 3. Save Table
     df = pd.DataFrame(results_list)
     df.to_csv(os.path.join(cfg['paths']['tables'], 'recognition_results.csv'), index=False)
     print(f"\n>>> Table saved to {cfg['paths']['tables']}")

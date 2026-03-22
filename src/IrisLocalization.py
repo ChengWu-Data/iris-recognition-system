@@ -1,28 +1,30 @@
 """
 RESPONSIBILITY:
-Detects the inner boundary (pupil) and outer boundary (iris) of the eye.
+Localizes the pupil boundary and iris outer boundary from the raw grayscale eye image.
 
-INPUT/OUTPUT:
-- Input: Raw eye image (grayscale, 320x280).
-- Output: Tuple of pupil parameters (x, y, r) and iris parameters (x, y, r).
+CURRENT DESIGN:
+1. Pupil Localization:
+   Uses median filtering, global inverse thresholding, and contour extraction
+   to detect the darkest inner region. The largest contour is approximated by
+   a minimum enclosing circle to estimate pupil center and radius.
 
-METHODS TO IMPLEMENT:
-1. Coarse pupil center estimation via horizontal/vertical projections.
-2. Exact pupil boundary via thresholding and centroid calculation.
-3. Outer boundary via edge detection (Canny) and Hough Transform.
-"""
+2. Iris Localization:
+   Uses Circular Hough Transform to detect the iris outer boundary.
+   Multiple accumulator thresholds are tested in descending sensitivity order.
 
-"""
-LOGIC:
-1. Pupil Localization: Uses global thresholding and morphological cleaning to find 
-   the darkest region. minEnclosingCircle provides a robust center (xp, yp).
-2. Iris Localization: Applies the Circular Hough Transform within a constrained 
-   search space relative to the pupil center. Crucially, it allows the iris 
-   center (xi, yi) to differ from (xp, yp), capturing the natural eccentricity.
+3. Outer-Circle Selection:
+   Among detected circles, selects the one whose center is closest to the
+   estimated pupil center.
 
-KEY VARIABLES:
-- p2: The accumulator threshold for Hough Circles. Lower values are more sensitive.
-- minRadius/maxRadius: Constants (90-125) calibrated for CASIA-IrisV1 database.
+4. Numerical Stability Fix:
+   Hough circle outputs are converted to signed integer type before distance
+   calculations, preventing overflow during center-distance comparisons.
+
+NOTES:
+- This version keeps the original simple localization logic because larger
+  structural modifications reduced recognition performance.
+- The retained improvement is the signed-integer conversion that fixes the
+  overflow warning without hurting CRR.
 """
 
 import cv2

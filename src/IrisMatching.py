@@ -1,10 +1,36 @@
 """
-LOGIC:
-1. Feature Scaling: Uses StandardScaler to ensure all Gabor features contribute equally.
-2. PCA: Reduces 1536D to 120D to remove noise while keeping 95%+ variance.
-3. FLD (LDA): The "Supervised" step. It ignores n_components=200 and forces it 
-   to the theoretical maximum (n_classes - 1) to ensure the best separation.
-4. Nearest Center: Calculates distances in the new 'Fisher-space'.
+RESPONSIBILITY:
+Performs feature normalization, optional dimensionality reduction, and
+nearest-center classification for iris recognition.
+
+CURRENT DESIGN:
+1. Feature Scaling:
+   Standardizes training and test features using StandardScaler.
+
+2. Reduced-Space Matching:
+   Uses a two-stage reduction pipeline:
+   - PCA for noise reduction and compact representation
+   - LDA for supervised class separation
+
+3. Stable PCA Setting:
+   Uses a deterministic full SVD solver for reproducible PCA behavior.
+
+4. Dimensionality Constraints:
+   - PCA dimension is limited by min(n_samples, n_features)
+   - LDA dimension is limited by min(requested_dim, n_classes - 1, pca_dim)
+
+5. Classification Rule:
+   Computes one class center per subject in the transformed space and
+   classifies each test sample by nearest-center distance.
+
+6. Supported Metrics:
+   - L1 (cityblock)
+   - L2 (euclidean)
+   - cosine
+
+NOTES:
+- The current best-performing configuration uses reduced-space cosine matching.
+- PCA dimensionality has been retuned for the current stronger feature pipeline.
 """
 
 import numpy as np
@@ -14,7 +40,7 @@ from sklearn.preprocessing import StandardScaler
 from scipy.spatial.distance import cdist
 
 class IrisMatcher:
-    def __init__(self, n_components: int = 107, pca_components: int = 120):
+    def __init__(self, n_components: int = 107, pca_components: int = 110):
         self.n_components = n_components
         self.pca_components = pca_components
 
@@ -43,7 +69,7 @@ class IrisMatcher:
 
             # LDA dimension cannot exceed (#classes - 1)
             max_lda_dim = len(self.classes) - 1
-            lda_dim = min(self.n_components, max_lda_dim)
+            lda_dim = min(self.n_components, max_lda_dim, pca_dim)
 
             self.lda = LinearDiscriminantAnalysis(n_components=lda_dim)
             X_trans = self.lda.fit_transform(X_pca, y)
