@@ -594,4 +594,18 @@ Updated iris normalization to use **bilinear interpolation**, resulting in more 
 ---
 
 **Member 3: Yuan Ji (yj2904)**  
-**Role: [To be completed]**
+Contributed to improving the iris recognition pipeline through systematic experimentation on preprocessing, feature extraction, matching, and evaluation under the CASIA-IrisV1 setting.
+
+Worked on the feature extraction module by refining the dual-filter design and tuning complementary filter parameters, including frequency separation and vertical-scale separation, which substantially improved texture discrimination in the normalized iris image.
+
+Improved the feature normalization strategy by adopting L2 normalization for the extracted feature vector, and evaluated multiple block-wise encoding variants to determine the most stable feature representation.
+
+Refined the matching pipeline by testing PCA + Fisher Linear Discriminant (FLD) + nearest-center classification, stabilizing PCA with a deterministic solver, and tuning PCA dimensionality to better match the stronger feature representation in reduced space.
+
+Enhanced the sample selection strategy by replacing quality filtering with quality-ranked selection, sorting images within each subject/session using frequency-domain quality measurements, and retaining the top-ranked training and testing samples.
+
+Improved the localization and pipeline stability by fixing the overflow issue in iris boundary selection, adding deterministic ordering in data processing, and checking selected samples to ensure reproducible experimental results.
+
+Conducted extensive parameter studies on ROI choice, block size, filter configuration, PCA dimensionality, and normalization behavior, identifying the current stable best-performing configuration with improved reduced-space cosine CRR.
+
+Integrated and validated the full pipeline in main.py, recorded the final experimental settings and results.
