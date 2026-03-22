@@ -38,7 +38,7 @@ class IrisMatcher:
             # PCA dimension cannot exceed min(n_samples, n_features)
             max_pca_dim = min(X_scaled.shape[0], X_scaled.shape[1])
             pca_dim = min(self.pca_components, max_pca_dim)
-            self.pca = PCA(n_components=pca_dim)
+            self.pca = PCA(n_components=pca_dim, svd_solver="full")
             X_pca = self.pca.fit_transform(X_scaled)
 
             # LDA dimension cannot exceed (#classes - 1)

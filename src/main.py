@@ -91,7 +91,7 @@ def main():
 
             candidates = []
 
-            for img_file in os.listdir(sess_path):
+            for img_file in sorted(os.listdir(sess_path)):
                 if not img_file.endswith(cfg['data']['img_ext']):
                     continue
 
@@ -117,7 +117,7 @@ def main():
                     print(f"[ERROR] {img_file}: {e}")
 
             # sort by quality score (descending)
-            candidates.sort(key=lambda x: x["quality_score"], reverse=True)
+            candidates.sort(key=lambda x: (-x["quality_score"], x["img_file"]))
 
             # choose top-k depending on session
             if sess == str(cfg['data']['train_session']):
@@ -135,10 +135,12 @@ def main():
 
             # optional debug print
             if len(candidates) > 0:
+                selected_names = [item["img_file"] for item in selected]
                 print(
                     f"[SELECT] subject={subject}, session={sess}, "
                     f"kept={len(selected)}/{len(candidates)}, "
-                    f"best_score={selected[0]['quality_score']:.4f}"
+                    f"best_score={selected[0]['quality_score']:.4f}, "
+                    f"selected={selected_names}"
                 )
 
     X_train, y_train = np.array(train_feats), np.array(train_labels)
