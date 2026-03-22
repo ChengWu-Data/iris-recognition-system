@@ -29,8 +29,8 @@ def extract_features(enhanced_img: np.ndarray, config=None) -> np.ndarray:
 
     features = []
 
-    for i in range(0, 48, 8):
-        for j in range(0, 512, 8):
+    for i in range(0, roi.shape[0], 8):
+        for j in range(0, roi.shape[1], 8):
             for block in [f1[i:i+8, j:j+8], f2[i:i+8, j:j+8]]:
                 mag = np.abs(block)
                 mean = np.mean(mag)
@@ -40,7 +40,8 @@ def extract_features(enhanced_img: np.ndarray, config=None) -> np.ndarray:
     features = np.array(features)
 
     # Normalize
-    features = (features - np.mean(features)) / (np.std(features) + 1e-6)
+    norm = np.linalg.norm(features) + 1e-6
+    features = features / norm
 
     return features
 
