@@ -48,7 +48,7 @@ if current_dir not in sys.path:
 
 from IrisLocalization import localize_iris
 from IrisNormalization import normalize_iris
-from ImageEnhancement import enhance_image, is_good_quality
+from ImageEnhancement import enhance_image, is_good_quality, compute_quality
 from FeatureExtraction import extract_features, extract_templates
 from IrisMatching import IrisMatcher
 from PerformanceEvaluation import evaluate_identification_crr, evaluate_verification_roc
@@ -78,36 +78,72 @@ def main():
     train_feats, train_labels, test_feats, test_labels = [], [], [], []
     dataset_path = os.path.join(root_dir, "CASIA-IrisV1")
 
-    # 1. Feature Extraction
     subjects = sorted([d for d in os.listdir(dataset_path) if os.path.isdir(os.path.join(dataset_path, d))])
+
+    train_top_k = 4
+    test_top_k = 1
+
     for subject in subjects:
         for sess in [str(cfg['data']['train_session']), str(cfg['data']['test_session'])]:
             sess_path = os.path.join(dataset_path, subject, sess)
-            if not os.path.isdir(sess_path): continue
+            if not os.path.isdir(sess_path):
+                continue
+
+            candidates = []
+
             for img_file in os.listdir(sess_path):
-                if not img_file.endswith(cfg['data']['img_ext']): continue
+                if not img_file.endswith(cfg['data']['img_ext']):
+                    continue
+
+                img_path = os.path.join(sess_path, img_file)
+
                 try:
-                    enh_img = process_pipeline(os.path.join(sess_path, img_file), cfg)
+                    enh_img = process_pipeline(img_path, cfg)
 
-                    if not is_good_quality(enh_img):
-                        continue
+                    total_power, ratio = compute_quality(enh_img)
 
-                    if sess == str(cfg['data']['train_session']):
-                        templates = extract_templates(enh_img)
+                    # quality ranking score
+                    quality_score = ratio + 0.15 * np.log(total_power + 1e-6)
 
-                        for t in templates:
-                            train_feats.append(t)
-                            train_labels.append(subject)
+                    candidates.append({
+                        "img_file": img_file,
+                        "enh_img": enh_img,
+                        "total_power": total_power,
+                        "ratio": ratio,
+                        "quality_score": quality_score,
+                    })
 
-                    else:
-                        feat = extract_features(enh_img)
-                        test_feats.append(feat)
-                        test_labels.append(subject)
                 except Exception as e:
                     print(f"[ERROR] {img_file}: {e}")
 
+            # sort by quality score (descending)
+            candidates.sort(key=lambda x: x["quality_score"], reverse=True)
+
+            # choose top-k depending on session
+            if sess == str(cfg['data']['train_session']):
+                selected = candidates[:train_top_k]
+                for item in selected:
+                    feat = extract_features(item["enh_img"])
+                    train_feats.append(feat)
+                    train_labels.append(subject)
+            else:
+                selected = candidates[:test_top_k]
+                for item in selected:
+                    feat = extract_features(item["enh_img"])
+                    test_feats.append(feat)
+                    test_labels.append(subject)
+
+            # optional debug print
+            if len(candidates) > 0:
+                print(
+                    f"[SELECT] subject={subject}, session={sess}, "
+                    f"kept={len(selected)}/{len(candidates)}, "
+                    f"best_score={selected[0]['quality_score']:.4f}"
+                )
+
     X_train, y_train = np.array(train_feats), np.array(train_labels)
     X_test, y_test = np.array(test_feats), np.array(test_labels)
+    print(f"[DATA] train samples={len(train_feats)}, test samples={len(test_feats)}")
 
     # 2. Evaluation Table Generation (Required by Step 6)
     results_list = []
