@@ -1,7 +1,7 @@
 Space,Dim,Metric,CRR (%)
-Original,1536,L1,58.00%
-Original,1536,L2,52.67%
-Original,1536,COSINE,50.35%
-Reduced,200,L1,54.29%
-Reduced,200,L2,57.08%
-Reduced,200,COSINE,60.09%
+Original,1536,L1,44.78%
+Original,1536,L2,44.78%
+Original,1536,COSINE,44.55%
+Reduced,200,L1,54.99%
+Reduced,200,L2,58.47%
+Reduced,200,COSINE,57.77%

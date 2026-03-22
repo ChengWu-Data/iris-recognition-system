@@ -14,78 +14,82 @@ from sklearn.preprocessing import StandardScaler
 from scipy.spatial.distance import cdist
 
 class IrisMatcher:
-    def __init__(self, n_components: int = 107):
+    def __init__(self, n_components: int = 107, pca_components: int = 120):
         self.n_components = n_components
-        self.pca = PCA(n_components=120) 
-        self.lda = LinearDiscriminantAnalysis()
+        self.pca_components = pca_components
+
         self.scaler = StandardScaler()
+        self.pca = None
+        self.lda = None
+
         self.classes = None
-        self.class_templates = {}
-        self._use_pca = True
+        self.class_centers = None
+        self.use_reduction = False
 
     def fit(self, X: np.ndarray, y: np.ndarray, use_pca: bool = True):
         self.classes = np.unique(y)
-        self._use_pca = use_pca
-        num_subjects = len(self.classes)
-        max_lda_dim = num_subjects - 1
-        self.lda.n_components = min(self.n_components, max_lda_dim)
+        self.use_reduction = use_pca
 
-        # 1. Normalize
+        # 1) Standardize features
         X_scaled = self.scaler.fit_transform(X)
 
-        # 2. PCA + LDA
-        if self._use_pca:
+        # 2) Reduced space: PCA -> LDA
+        if use_pca:
+            # PCA dimension cannot exceed min(n_samples, n_features)
+            max_pca_dim = min(X_scaled.shape[0], X_scaled.shape[1])
+            pca_dim = min(self.pca_components, max_pca_dim)
+            self.pca = PCA(n_components=pca_dim)
             X_pca = self.pca.fit_transform(X_scaled)
+
+            # LDA dimension cannot exceed (#classes - 1)
+            max_lda_dim = len(self.classes) - 1
+            lda_dim = min(self.n_components, max_lda_dim)
+
+            self.lda = LinearDiscriminantAnalysis(n_components=lda_dim)
             X_trans = self.lda.fit_transform(X_pca, y)
         else:
+            self.pca = None
+            self.lda = None
             X_trans = X_scaled
 
-        # 3. Store all templates per class
-        self.class_templates = {cls: [] for cls in self.classes}
-
-        for i in range(len(X_trans)):
-            cls = y[i]
-            self.class_templates[cls].append(X_trans[i])
-
+        # 3) Compute class centers
+        self.class_centers = {}
         for cls in self.classes:
-            self.class_templates[cls] = np.array(self.class_templates[cls])
+            cls_samples = X_trans[y == cls]
+            self.class_centers[cls] = np.mean(cls_samples, axis=0)
 
-    def predict(self, X: np.ndarray, metric: str = 'l1'):
-        X_scaled = self.scaler.transform(X)
-        
-        if self._use_pca:
-            X_pca = self.pca.transform(X_scaled)
-            transformed_X = self.lda.transform(X_pca)
-        else:
-            transformed_X = X_scaled
-            
-        dist_methods = {
+    def predict(self, X: np.ndarray, metric: str = 'l2'):
+        metric_map = {
             'l1': 'cityblock',
             'l2': 'euclidean',
             'cosine': 'cosine'
         }
-        method = dist_methods.get(metric.lower(), 'cityblock')
+
+        if metric.lower() not in metric_map:
+            raise ValueError(f"Unsupported metric: {metric}")
+
+        method = metric_map[metric.lower()]
+
+        # 1) Apply the same transforms as training
+        X_scaled = self.scaler.transform(X)
+
+        if self.use_reduction:
+            X_pca = self.pca.transform(X_scaled)
+            X_trans = self.lda.transform(X_pca)
+        else:
+            X_trans = X_scaled
+
+        # 2) Stack class centers
+        centers = np.array([self.class_centers[cls] for cls in self.classes])
 
         preds = []
         min_dists = []
 
-        for x in transformed_X:
-            best_cls = None
-            best_dist = float('inf')
-
-            # Compare with EACH class
-            for cls in self.classes:
-                templates = self.class_templates[cls]
-
-                # MIN distance over templates
-                dists = cdist([x], templates, metric=method)
-                dist = np.min(dists)
-
-                if dist < best_dist:
-                    best_dist = dist
-                    best_cls = cls
-
-            preds.append(best_cls)
-            min_dists.append(best_dist)
+        # 3) Nearest center classification
+        for x in X_trans:
+            dists = cdist([x], centers, metric=method).flatten()
+            best_idx = np.argmin(dists)
+            preds.append(self.classes[best_idx])
+            min_dists.append(dists[best_idx])
 
         return np.array(preds), np.array(min_dists)
