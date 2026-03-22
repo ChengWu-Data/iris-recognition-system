@@ -80,8 +80,8 @@ def main():
 
     subjects = sorted([d for d in os.listdir(dataset_path) if os.path.isdir(os.path.join(dataset_path, d))])
 
-    train_top_k = 4
-    test_top_k = 1
+    train_top_k = 3
+    test_top_k = 2
 
     for subject in subjects:
         for sess in [str(cfg['data']['train_session']), str(cfg['data']['test_session'])]:
