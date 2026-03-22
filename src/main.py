@@ -103,7 +103,7 @@ def main():
                     total_power, ratio = compute_quality(enh_img)
 
                     # quality ranking score
-                    quality_score = ratio + 0.15 * np.log(total_power + 1e-6)
+                    quality_score = ratio
 
                     candidates.append({
                         "img_file": img_file,
