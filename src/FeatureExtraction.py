@@ -21,8 +21,8 @@ def _create_spatial_filter(size: int, delta_x: float, delta_y: float, freq: floa
 def extract_features(enhanced_img: np.ndarray, config=None) -> np.ndarray:
     roi = enhanced_img[0:48, :]
 
-    filter_1 = _create_spatial_filter(15, 3.0, 1.5, 1/8.0)
-    filter_2 = _create_spatial_filter(15, 4.5, 1.5, 1/5.0)
+    filter_1 = _create_spatial_filter(15, 3.0, 1.2, 1/10.0)
+    filter_2 = _create_spatial_filter(15, 4.5, 1.8, 1/5.5)
 
     f1 = cv2.filter2D(roi, cv2.CV_32F, filter_1)
     f2 = cv2.filter2D(roi, cv2.CV_32F, filter_2)
