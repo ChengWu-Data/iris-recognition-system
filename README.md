@@ -554,7 +554,7 @@ Worked on the matching pipeline, including feature scaling, PCA + Fisher Linear 
 
 Helped debug and improve the system by fixing the LDA dimensionality issue, adjusting ROI selection to reduce eyelash interference, and resolving feature scaling inconsistencies.
 
-Also contributed to integrating the full pipeline in main.py, generating CRR and ROC results, and preparing the README and documentation.
+Integrating the full pipeline in main.py, generating CRR and ROC results, the README and documentation.
 
 In the later stage of the project, further worked on refining the implementation to better align with the paper and assignment requirements, including improving the rotation-template matching logic, adjusting the preprocessing and feature extraction details, and updating the evaluation pipeline to produce the final improved results.
 
